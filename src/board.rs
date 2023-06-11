@@ -1,5 +1,93 @@
 use std::rc::Rc;
 
+pub struct Board {
+    pub tiles: Vec<Rc<Tile>>,
+    pub connections: Vec<Connection>,
+}
+
+impl Board {
+    pub fn new(num_tiles: i32) -> Self {
+        if num_tiles <= 0 {
+            panic!("Cannot create a board with 0 or less tiles.");
+        }
+
+        let mut board = Board {
+            tiles: Vec::new(),
+            connections: Vec::new(),
+        };
+
+        for i in 0..num_tiles {
+            board.tiles.push(Rc::new(Tile::new(i)));
+        }
+
+        // TODO: making connections between tiles should be it's own function that is tested
+        // INPUT: num_ladders, num_slides, &tiles
+        // OUTPUT: vec of connections
+        // TEST: returns right number of ladders
+        // TEST: returns right number of slides
+        // TEST: no connections start at the same tile
+        // TEST: no connections end at the same tile
+        // TEST: panics if requested number of connections is greater than half the number of tiles
+        // rounded down
+        let num_connections = ((num_tiles as f32) / 5.0).floor();
+        let num_ladders = (num_connections / 2.0).ceil() as i32;
+        let num_slides = (num_connections / 2.0).floor() as i32;
+
+        let mut rng = rand::thread_rng();
+        for _ in 0..num_ladders {
+            let mut start_tile: Option<&Rc<Tile>> = None;
+            while start_tile.is_none() {
+                let random_tile_index = rand::Rng::gen_range(&mut rng, 0..num_tiles) as usize;
+                let tile = board.tiles.get(random_tile_index).unwrap();
+                let existing_conn = board.connections.iter().find(|conn| Rc::ptr_eq(&conn.start, tile));
+                if existing_conn.is_none() {
+                    start_tile = Some(tile);
+                }
+            }
+
+            let mut end_tile: Option<&Rc<Tile>> = None;
+            while end_tile.is_none() {
+                let random_tile_index = rand::Rng::gen_range(&mut rng, 0..num_tiles) as usize;
+                let tile = board.tiles.get(random_tile_index).unwrap();
+                let existing_conn = board.connections.iter().find(|conn| Rc::ptr_eq(&conn.start, tile));
+                if existing_conn.is_none() {
+                    end_tile = Some(tile);
+                }
+            }
+
+            let conn = Connection::new(ConnectionKind::Slide, &start_tile.unwrap(), &end_tile.unwrap());
+            board.connections.push(conn);
+        }
+
+        for _ in 0..num_slides {
+            let mut start_tile: Option<&Rc<Tile>> = None;
+            while start_tile.is_none() {
+                let random_tile_index = rand::Rng::gen_range(&mut rng, 0..num_tiles) as usize;
+                let tile = board.tiles.get(random_tile_index).unwrap();
+                let existing_conn = board.connections.iter().find(|conn| Rc::ptr_eq(&conn.start, tile));
+                if existing_conn.is_none() {
+                    start_tile = Some(tile);
+                }
+            }
+
+            let mut end_tile: Option<&Rc<Tile>> = None;
+            while end_tile.is_none() {
+                let random_tile_index = rand::Rng::gen_range(&mut rng, 0..num_tiles) as usize;
+                let tile = board.tiles.get(random_tile_index).unwrap();
+                let existing_conn = board.connections.iter().find(|conn| Rc::ptr_eq(&conn.start, tile));
+                if existing_conn.is_none() {
+                    end_tile = Some(tile);
+                }
+            }
+
+            let conn = Connection::new(ConnectionKind::Slide, &start_tile.unwrap(), &end_tile.unwrap());
+            board.connections.push(conn);
+        }
+
+        board
+    }
+}
+
 pub struct Pawn {
     pub tile: Rc::<Tile>,
 }
