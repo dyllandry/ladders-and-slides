@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 mod dice;
 mod board;
 
@@ -9,10 +11,10 @@ fn main() {
     }
 
     let tiles = vec![
-        board::Tile::new(0),
-        board::Tile::new(1),
-        board::Tile::new(2),
-        board::Tile::new(3),
+        Rc::new(board::Tile::new(0)),
+        Rc::new(board::Tile::new(1)),
+        Rc::new(board::Tile::new(2)),
+        Rc::new(board::Tile::new(3)),
     ];
 
     let connections = vec![

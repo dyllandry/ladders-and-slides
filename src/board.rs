@@ -1,26 +1,28 @@
-pub struct Pawn<'a> {
-    pub tile: &'a Tile,
+use std::rc::Rc;
+
+pub struct Pawn {
+    pub tile: Rc::<Tile>,
 }
 
-impl<'a> Pawn<'a> {
-    pub fn new<'b: 'a> (tile: &'a Tile) -> Self {
+impl Pawn {
+    pub fn new (tile: &Rc<Tile>) -> Self {
         Self {
-            tile
+            tile: Rc::clone(tile)
         }
     }
 
-    pub fn advance<'b: 'a>(&mut self, end_tile: &'b Tile, connections: &'b [Connection]) {
+    pub fn advance(&mut self, end_tile: &Rc<Tile>, connections: &[Connection]) {
         let mut target_end_tile = end_tile;
         while let Some(connection_to_travel) = connections.iter().find(
-            |conn| std::ptr::eq(conn.start, target_end_tile)
+            |conn| Rc::ptr_eq(&conn.start, target_end_tile)
         ) {
-            target_end_tile = connection_to_travel.end;
+            target_end_tile = &connection_to_travel.end;
         }
-        self.tile = target_end_tile;
+        self.tile = Rc::clone(target_end_tile);
     }
 }
 
-impl<'a> std::fmt::Display for Pawn<'a> {
+impl<'a> std::fmt::Display for Pawn {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write![f, "Pawn at tile {}.", self.tile.position]
     }
@@ -47,9 +49,9 @@ impl Tile {
     }
 }
 
-pub struct Connection<'a> {
-    pub start: &'a Tile,
-    pub end: &'a Tile,
+pub struct Connection {
+    pub start: Rc<Tile>,
+    pub end: Rc<Tile>,
     pub kind: ConnectionKind
 }
 
@@ -69,8 +71,8 @@ impl std::fmt::Display for ConnectionKind {
     }
 }
 
-impl<'a> Connection<'a> {
-    pub fn new<'b: 'a>(kind: ConnectionKind, start: &'b Tile, end: &'b Tile) -> Self {
+impl Connection {
+    pub fn new(kind: ConnectionKind, start: &Rc<Tile>, end: &Rc<Tile>) -> Self {
         if start.position == end.position {
             panic!("Tried to create a connection but it starts and ends at the same place.");
         }
@@ -85,13 +87,13 @@ impl<'a> Connection<'a> {
 
         Self {
             kind,
-            start,
-            end
+            start: Rc::clone(start),
+            end: Rc::clone(end)
         }
     }
 }
 
-impl<'a> std::fmt::Display for Connection<'a> {
+impl std::fmt::Display for Connection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} from tile {} to tile {}.", self.kind, self.start.position, self.end.position)
     }
@@ -118,23 +120,23 @@ mod test {
             #[test]
             #[should_panic]
             fn panics_if_starts_and_ends_at_same_place() {
-                let tile = Tile { position: 0 };
+                let tile = Rc::new(Tile { position: 0 });
                 Connection::new(ConnectionKind::Slide, &tile, &tile);
             }
 
             #[test]
             #[should_panic]
             fn panics_if_is_slide_but_goes_up() {
-                let lower_tile = Tile { position: 0 };
-                let higher_tile = Tile { position: 1 };
+                let lower_tile = Rc::new(Tile { position: 0 });
+                let higher_tile = Rc::new(Tile { position: 1 });
                 Connection::new(ConnectionKind::Slide, &lower_tile, &higher_tile);
             }
 
             #[test]
             #[should_panic]
             fn panics_if_is_ladder_but_goes_down() {
-                let lower_tile = Tile { position: 0 };
-                let higher_tile = Tile { position: 1 };
+                let lower_tile = Rc::new(Tile { position: 0 });
+                let higher_tile = Rc::new(Tile { position: 1 });
                 Connection::new(ConnectionKind::Ladder, &higher_tile, &lower_tile);
             }
         }
@@ -146,42 +148,42 @@ mod test {
 
             #[test]
             fn moves_pawn_to_tile() {
-                let start_tile = Tile::new(0);
-                let end_tile = Tile::new(1);
+                let start_tile = Rc::new(Tile::new(0));
+                let end_tile = Rc::new(Tile::new(1));
                 let mut pawn = Pawn::new(&start_tile);
                 let connections: Vec<Connection> = Vec::new();
                 pawn.advance(&end_tile, &connections);
-                assert!(std::ptr::eq(pawn.tile, &end_tile));
+                assert!(Rc::ptr_eq(&pawn.tile, &end_tile));
             }
 
             #[test]
             fn follows_connections_until_they_stop() {
-                let tile_1 = Tile::new(0);
-                let tile_2 = Tile::new(1);
-                let tile_3 = Tile::new(2);
-                let tile_4 = Tile::new(3);
+                let tile_1 = Rc::new(Tile::new(0));
+                let tile_2 = Rc::new(Tile::new(1));
+                let tile_3 = Rc::new(Tile::new(2));
+                let tile_4 = Rc::new(Tile::new(3));
                 let mut pawn = Pawn::new(&tile_1);
                 let connections: Vec<Connection> = vec![
                     Connection::new(ConnectionKind::Ladder, &tile_2, &tile_3),
                     Connection::new(ConnectionKind::Ladder, &tile_3, &tile_4),
                 ];
                 pawn.advance(&tile_2, &connections);
-                assert!(std::ptr::eq(pawn.tile, &tile_4));
+                assert!(Rc::ptr_eq(&pawn.tile, &tile_4));
             }
 
             #[test]
             fn follows_ladder_and_slide_connections_until_they_stop() {
-                let tile_1 = Tile::new(0);
-                let tile_2 = Tile::new(1);
-                let tile_3 = Tile::new(2);
-                let tile_4 = Tile::new(3);
+                let tile_1 = Rc::new(Tile::new(0));
+                let tile_2 = Rc::new(Tile::new(1));
+                let tile_3 = Rc::new(Tile::new(2));
+                let tile_4 = Rc::new(Tile::new(3));
                 let mut pawn = Pawn::new(&tile_1);
                 let connections: Vec<Connection> = vec![
                     Connection::new(ConnectionKind::Ladder, &tile_2, &tile_4),
                     Connection::new(ConnectionKind::Slide, &tile_4, &tile_3),
                 ];
                 pawn.advance(&tile_2, &connections);
-                assert!(std::ptr::eq(pawn.tile, &tile_3));
+                assert!(Rc::ptr_eq(&pawn.tile, &tile_3));
             }
         }
     }
