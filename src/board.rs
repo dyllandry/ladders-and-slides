@@ -6,6 +6,9 @@ pub struct Board {
 }
 
 impl Board {
+    // TODO: test
+    // TEST: included tile positions start at 0 and end at num_tiles minus one
+    // TEST: included connections included a greater than 0 number of slides and ladders
     pub fn new(num_tiles: i32) -> Self {
         if num_tiles <= 0 {
             panic!("Cannot create a board with 0 or less tiles.");
