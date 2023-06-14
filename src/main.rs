@@ -1,43 +1,33 @@
-use std::rc::Rc;
-
 mod dice;
 mod board;
 
 fn main() {
-    println!("I'm going to roll two 6 sided dice, 10 times!");
-    for i in 0..10 {
-        let result = dice::roll(6, 2);
-        println!("roll {}: {}", i+1, result);
-    }
+    let board = board::Board::new(20);
 
-    let tiles = vec![
-        Rc::new(board::Tile::new(0)),
-        Rc::new(board::Tile::new(1)),
-        Rc::new(board::Tile::new(2)),
-        Rc::new(board::Tile::new(3)),
-    ];
+    let mut pawn = board::Pawn::new(
+        board.tiles.get(0).unwrap()
+    );
 
-    let connections = vec![
-        board::Connection::new(
-            board::ConnectionKind::Ladder,
-            tiles.get(1).unwrap(),
-            tiles.get(3).unwrap(),
-        )
-    ];
+    let num_ladders = board.connections.iter().filter(|conn| conn.kind == board::ConnectionKind::Ladder).count() as i32;
+    let num_slides = board.connections.iter().filter(|conn| conn.kind == board::ConnectionKind::Slide).count() as i32;
+    println!(
+        "Made a board with {} tiles, {} ladders, and {} slides.",
+        board.tiles.len(),
+        num_ladders,
+        num_slides
+    );
 
-    let mut pawn = board::Pawn::new(tiles.get(0).unwrap());
+    let first_ladder = board.connections.iter().find(|conn| conn.kind == board::ConnectionKind::Ladder).unwrap();
 
-    for tile in &tiles {
-        println!("{}", tile);
-    }
+    println!(
+        "First ladder moves from tile {} to tile {}.",
+         first_ladder.start.position,
+         first_ladder.end.position
+     );
 
-    for conn in &connections {
-        println!("{}", conn);
-    }
+    println!("Moving pawn from tile {} to tile {}.", pawn.tile.position, first_ladder.start.position);
 
-    println!("{}", pawn);
+    pawn.advance(&first_ladder.start, &board.connections);
 
-    pawn.advance(tiles.get(1).unwrap(), &connections);
-
-    println!("{}", pawn);
+    println!("Pawn ended up at tile {}!", pawn.tile.position);
 }
