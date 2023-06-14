@@ -6,9 +6,6 @@ pub struct Board {
 }
 
 impl Board {
-    // TODO: test
-    // TEST: included tile positions start at 0 and end at num_tiles minus one
-    // TEST: included connections included a greater than 0 number of slides and ladders
     pub fn new(num_tiles: i32) -> Self {
         if num_tiles <= 0 {
             panic!("Cannot create a board with 0 or less tiles.");
@@ -24,7 +21,7 @@ impl Board {
         }
 
         let max_num_connections = ((num_tiles as f32) / 2.0).floor() as i32;
-        let num_connections = (max_num_connections as f32 / 5.0).floor() as i32;
+        let num_connections = (max_num_connections as f32 / 2.0).floor() as i32;
         let num_ladders = (num_connections as f32 / 2.0).ceil() as i32;
         let num_slides = (num_connections as f32 / 2.0).floor() as i32;
 
@@ -371,6 +368,42 @@ mod test {
             let num_ladders = 2;
             let tiles = create_vec_of_rc_tiles(2);
             create_board_connections(num_ladders, 0, &tiles);
+        }
+    }
+
+    mod board {
+        use super::super::*;
+
+        #[test]
+        fn tile_positions_start_at_0_and_end_at_num_tiles_minus_1() {
+            let num_tiles = 99;
+            let board = Board::new(num_tiles);
+            assert_eq!(board.tiles.len() as i32, num_tiles);
+            for (index, tile) in board.tiles.iter().enumerate() {
+                assert_eq!(tile.position, index as i32);
+            }
+        }
+
+        #[test]
+        fn a_board_of_20_tiles_has_at_least_2_slides_and_2_ladders() {
+            let num_tiles = 20;
+            let board = Board::new(num_tiles);
+            let num_ladders = board.connections.iter().filter(|conn| conn.kind == ConnectionKind::Ladder).count() as i32;
+            let num_slides = board.connections.iter().filter(|conn| conn.kind == ConnectionKind::Slide).count() as i32;
+            assert!(num_slides >= 2);
+            assert!(num_ladders >= 2);
+        }
+
+        #[test]
+        fn a_board_of_20_tiles_has_at_most_2_slides_and_3_ladders() {
+            for _ in 0..100 {
+                let num_tiles = 20;
+                let board = Board::new(num_tiles);
+                let num_ladders = board.connections.iter().filter(|conn| conn.kind == ConnectionKind::Ladder).count() as i32;
+                let num_slides = board.connections.iter().filter(|conn| conn.kind == ConnectionKind::Slide).count() as i32;
+                assert!(num_slides <= 2);
+                assert!(num_ladders <= 3);
+            }
         }
     }
 }
