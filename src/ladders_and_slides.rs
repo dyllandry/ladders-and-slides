@@ -28,6 +28,7 @@ impl LaddersAndSlides {
     pub fn take_turn(&mut self) {
         let pawn_index = self.turn as usize % self.board.pawns.len();
         let pawn = self.board.pawns.get_mut(pawn_index).unwrap();
+        self.logger.log(&format!("It's player {}'s turn.", pawn.player + 1));
         let pawn_start_position = pawn.position;
         let initial_move_distance = crate::dice::roll(6, 1);
         self.logger.log(&format!("Player {} rolled a {}.", pawn.player + 1, initial_move_distance));
@@ -41,6 +42,7 @@ impl LaddersAndSlides {
         if pawn_start_position + initial_move_distance != final_position {
             self.logger.log(&format!("Player {}'s pawn ended up at {} after connections.", pawn.player + 1, final_position));
         }
+        self.logger.log("");
         self.turn += 1;
     }
 
