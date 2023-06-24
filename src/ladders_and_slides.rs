@@ -29,10 +29,12 @@ impl LaddersAndSlides {
         let pawn_index = self.turn as usize % self.board.pawns.len();
         let pawn = self.board.pawns.get_mut(pawn_index).unwrap();
         self.logger.log(&format!("It's player {}'s turn.", pawn.player + 1));
+
         let pawn_start_position = pawn.position;
         let initial_move_distance = crate::dice::roll(6, 1);
         self.logger.log(&format!("Player {} rolled a {}.", pawn.player + 1, initial_move_distance));
         self.logger.log(&format!("Moved player {}'s pawn from {} to {}.", pawn.player + 1, pawn.position, pawn.position + initial_move_distance));
+
         let final_position = position_after_connections(
             pawn_start_position + initial_move_distance,
             &self.board.connections,
@@ -42,8 +44,9 @@ impl LaddersAndSlides {
         if pawn_start_position + initial_move_distance != final_position {
             self.logger.log(&format!("Player {}'s pawn ended up at {} after connections.", pawn.player + 1, final_position));
         }
-        self.logger.log("");
+
         self.turn += 1;
+        self.logger.log("");
     }
 
     pub fn player_positions(&self) -> Vec<i32> {
@@ -80,7 +83,7 @@ struct Board {
     connections: Vec<Connection>
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Connection {
     start: i32,
     end: i32,
@@ -121,7 +124,7 @@ impl Board {
             let start_tile = rand::Rng::gen_range(&mut rng, 0..num_tiles-1);
             let end_tile = rand::Rng::gen_range(&mut rng, 0..num_tiles);
             let tiles_are_same = start_tile == end_tile;
-            let conn_already_exists = connections.iter().find(|conn| conn.start == end_tile || conn.end == end_tile).is_some();
+            let conn_already_exists = connections.iter().find(|conn| conn.start == start_tile || conn.end == end_tile).is_some();
             if !tiles_are_same && !conn_already_exists {
                 connections.push(Connection { start: start_tile, end: end_tile });
             }
@@ -140,7 +143,32 @@ mod tests {
     use super::*;
 
     mod board {
+        use std::collections::HashSet;
+
         use super::*;
+
+        #[test]
+        fn no_connections_start_at_same_position() {
+            // Test many times since tile positions in connections are generated randomly.
+            for i in 0..1000 {
+                let num_tiles = 50;
+                let board = Board::new(num_tiles, 2);
+
+                let mut start_positions = HashSet::new();
+                for conn in board.connections {
+                    if start_positions.contains(&conn.start) {
+                        panic!(
+                            "Start positions already includes {}. Failed on test iteration {}. Start positions are {:?}",
+                            &conn.start,
+                            i,
+                            start_positions
+                        );
+                    } else {
+                        start_positions.insert(conn.start);
+                    }
+                }
+            }
+        }
 
         #[test]
         fn connections_are_all_between_existing_tiles() {
