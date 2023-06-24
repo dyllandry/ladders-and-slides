@@ -1,6 +1,7 @@
-use std::rc::Rc;
+use std::{rc::Rc, cmp::min};
+use bevy::{ecs::component::Component, prelude::Query};
 
-use crate::logger::Logger;
+use crate::{logger::Logger, dice::roll};
 
 pub struct LaddersAndSlides {
     board: Board,
@@ -81,6 +82,32 @@ impl LaddersAndSlides {
     }
 }
 
+pub fn winning_player(pawns: Vec<&Pawn>, board: &BoardComponent) -> Option<i32> {
+    if let Some(winning_pawn) = pawns.iter().find(|pawn| pawn.position >= board.num_tiles - 1) {
+        Some(winning_pawn.player)
+    } else {
+        None
+    }
+}
+
+// TODO: test
+// TODO: pass in logger
+pub fn move_pawn(pawn: &Pawn, board: &BoardComponent, distance: i32) -> i32 {
+    let mut position = pawn.position + distance;
+    while let Some(conn) = board.connections.iter().find(
+        |conn| conn.start == position
+    ) {
+        println!(
+            "Player {}'s pawn took a connection from {} to {}.",
+            pawn.player + 1,
+            conn.start,
+            conn.end
+        );
+        position = conn.end;
+    }
+    return position;
+}
+
 fn position_after_connections(start_position: i32, connections: &Vec<Connection>, logger: Option<&Rc<Logger>>) -> i32 {
     let mut interim_position = start_position;
     while let Some(connection_to_travel) = connections.iter().find(
@@ -100,6 +127,13 @@ fn position_after_connections(start_position: i32, connections: &Vec<Connection>
     return interim_position;
 }
 
+#[derive(Component)]
+pub struct BoardComponent {
+    pub num_tiles: i32,
+    pub connections: Vec<Connection>
+}
+
+
 struct Board {
     num_tiles: i32,
     pawns: Vec<Pawn>,
@@ -112,9 +146,10 @@ pub struct Connection {
     end: i32,
 }
 
-struct Pawn {
-    position: i32,
-    player: i32,
+#[derive(Component, Debug)]
+pub struct Pawn {
+   pub position: i32,
+   pub player: i32,
 }
 
 struct Player {}
@@ -161,6 +196,89 @@ impl Board {
         }
     }
 }
+
+impl BoardComponent {
+    pub fn new(num_tiles: i32) -> Self {
+        if num_tiles <= 0 {
+            panic!("Cannot make a board with <= 0 tiles or <= 0 players.");
+        }
+
+        let mut connections: Vec<Connection> = Vec::new();
+        let num_connections = (num_tiles as f32 / 3.0).floor() as i32;
+        let mut rng = rand::thread_rng();
+        while connections.len() < num_connections as usize {
+            // -1 to start tile because you don't want a slide to prevent finishing the game.
+            let start_tile = rand::Rng::gen_range(&mut rng, 0..num_tiles-1);
+            let end_tile = rand::Rng::gen_range(&mut rng, 0..num_tiles);
+            let tiles_are_same = start_tile == end_tile;
+            let conn_already_exists = connections.iter().find(|conn| conn.start == start_tile || conn.end == end_tile).is_some();
+            let mirror_conn_exists = connections.iter().find(|conn| conn.start == end_tile || conn.end == start_tile).is_some();
+            if !tiles_are_same && !conn_already_exists && !mirror_conn_exists {
+                connections.push(Connection { start: start_tile, end: end_tile });
+            }
+        }
+
+        Self {
+            num_tiles,
+            connections,
+        }
+    }
+}
+
+#[derive(Component, Debug)]
+pub struct TurnCounter {
+    pub turn: i32
+}
+
+impl TurnCounter {
+    pub fn new() -> Self {
+        Self {
+            turn: 0,
+        }
+    }
+}
+
+pub fn take_turns(
+    board_query: Query<&BoardComponent>,
+    mut pawn_query: Query<&mut Pawn>,
+    mut turn_counter_query: Query<&mut TurnCounter>,
+) {
+    let board = board_query.single();
+    if winning_player(pawn_query.iter().collect(), board).is_some()  {
+        return;
+    }
+
+    let mut turn_counter = turn_counter_query.single_mut();
+    let next_player_index = turn_counter.turn % pawn_query.iter().len() as i32;
+    let mut next_pawn = pawn_query
+        .iter_mut()
+        .find(|p| p.player == next_player_index).unwrap();
+
+    let move_distance = roll(6, 2);
+    println!(
+        "Player {} rolled a {}.",
+        next_pawn.player + 1,
+        move_distance
+    );
+    let initial_new_position = min(next_pawn.position + move_distance, board.num_tiles - 1);
+    println!(
+        "Player {}'s pawn moved from {} to {}.",
+        next_pawn.player + 1,
+        next_pawn.position,
+        initial_new_position
+    );
+
+    let new_position = move_pawn(next_pawn.as_ref(), &board, move_distance);
+    next_pawn.position = min(new_position, board.num_tiles - 1);
+
+    if let Some(winning_player) = winning_player(pawn_query.iter().collect(), board) {
+        println!("Player {} won!", winning_player + 1);
+        return;
+    } else {
+        turn_counter.turn += 1;
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
