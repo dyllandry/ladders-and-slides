@@ -36,7 +36,7 @@ fn main() {
     let num_players = 2;
     let mut game = LaddersAndSlides::new(num_tiles, num_players, &logger);
 
-    loop {
+    while !game.game_over() {
         game.take_turn();
     }
 }

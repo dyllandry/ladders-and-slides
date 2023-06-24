@@ -26,27 +26,37 @@ impl LaddersAndSlides {
     }
 
     pub fn take_turn(&mut self) {
+        if self.game_over() { return; }
+
         let pawn_index = self.turn as usize % self.board.pawns.len();
         let pawn = self.board.pawns.get_mut(pawn_index).unwrap();
         self.logger.log(&format!("It's player {}'s turn.", pawn.player + 1));
 
         let pawn_start_position = pawn.position;
         let initial_move_distance = crate::dice::roll(6, 1);
+        let position_after_initial_move = std::cmp::min(pawn.position + initial_move_distance, self.board.num_tiles - 1);
         self.logger.log(&format!("Player {} rolled a {}.", pawn.player + 1, initial_move_distance));
-        self.logger.log(&format!("Moved player {}'s pawn from {} to {}.", pawn.player + 1, pawn.position, pawn.position + initial_move_distance));
+        self.logger.log(&format!("Moved player {}'s pawn from {} to {}.", pawn.player + 1, pawn.position, position_after_initial_move));
 
         let final_position = position_after_connections(
             pawn_start_position + initial_move_distance,
             &self.board.connections,
             Some(&self.logger)
         );
-        pawn.position = final_position;
-        if pawn_start_position + initial_move_distance != final_position {
+        pawn.position = std::cmp::min(final_position, self.board.num_tiles - 1);
+
+        let moved_across_connections = pawn_start_position + initial_move_distance != final_position;
+        if moved_across_connections {
             self.logger.log(&format!("Player {}'s pawn ended up at {} after connections.", pawn.player + 1, final_position));
         }
 
-        self.turn += 1;
-        self.logger.log("");
+        if self.game_over() {
+            let winner = self.winning_player().unwrap();
+            self.logger.log(&format!("Player {} won!", winner + 1));
+        } else {
+            self.turn += 1;
+            self.logger.log("");
+        }
     }
 
     pub fn player_positions(&self) -> Vec<i32> {
@@ -55,6 +65,19 @@ impl LaddersAndSlides {
 
     pub fn connections(&self) -> Vec<Connection> {
         self.board.connections.clone()
+    }
+
+    pub fn winning_player(&self) -> Option<i32> {
+        if let Some(winning_pawn) = self.board.pawns.iter().find(|pawn| pawn.position >= self.board.num_tiles - 1) {
+            Some(winning_pawn.player)
+        } else {
+            None
+        }
+
+    }
+
+    pub fn game_over(&self) -> bool {
+        self.winning_player().is_some()
     }
 }
 
@@ -125,7 +148,8 @@ impl Board {
             let end_tile = rand::Rng::gen_range(&mut rng, 0..num_tiles);
             let tiles_are_same = start_tile == end_tile;
             let conn_already_exists = connections.iter().find(|conn| conn.start == start_tile || conn.end == end_tile).is_some();
-            if !tiles_are_same && !conn_already_exists {
+            let mirror_conn_exists = connections.iter().find(|conn| conn.start == end_tile || conn.end == start_tile).is_some();
+            if !tiles_are_same && !conn_already_exists && !mirror_conn_exists {
                 connections.push(Connection { start: start_tile, end: end_tile });
             }
         }
@@ -146,6 +170,31 @@ mod tests {
         use std::collections::HashSet;
 
         use super::*;
+
+        #[test]
+        /// This is a connection that is the same as another but reversed.
+        /// For example, a connection from 1 -> 5 and another from 5 -> 1
+        fn no_mirror_connections_exist() {
+            // Test many times since tile positions in connections are generated randomly.
+            for i in 0..1000 {
+                let num_tiles = 50;
+                let board = Board::new(num_tiles, 2);
+
+                for conn in &board.connections {
+                    let mirror_connection = &board.connections.iter().find(
+                        |conn_2| conn.start == conn_2.end && conn.end == conn_2.start
+                    );
+                    if let Some(mirror_connection) = mirror_connection {
+                        panic!(
+                            "Mirror connection exists between connections: {:?} and {:?} on test iteration {}.",
+                            &conn,
+                            &mirror_connection,
+                            i
+                        );
+                    }
+                }
+            }
+        }
 
         #[test]
         fn no_connections_start_at_same_position() {
