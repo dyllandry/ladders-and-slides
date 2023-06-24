@@ -1,17 +1,17 @@
-use std::{fs::File, io::Write};
+use std::{fs::File, io::Write, cell::RefCell};
 
 pub struct Logger {
-    file: File,
+    file: RefCell<File>,
 }
 
 impl Logger {
     pub fn new() -> Self {
         let file = File::create("ladders_and_slides.log").unwrap();
-        Self { file }
+        Self { file: RefCell::new(file) }
     }
 
-    pub fn log(&mut self, message: &str) {
-        self.file.write_all(message.as_bytes()).unwrap();
-        self.file.write_all(b"\n").unwrap();
+    pub fn log(&self, message: &str) {
+        self.file.borrow_mut().write_all(message.as_bytes()).unwrap();
+        self.file.borrow_mut().write_all(b"\n").unwrap();
     }
 }

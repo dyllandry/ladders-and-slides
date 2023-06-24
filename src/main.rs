@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use ladders_and_slides::LaddersAndSlides;
 use logger::Logger;
 
@@ -26,13 +28,13 @@ fn main() {
     // for appending, append to it, then close? If I can't have multiple File with same append
     // permission at the same time, then I'll need to have each logger open and close the file for
     // each write.
-    let mut logger = Logger::new();
+    let logger = Rc::new(Logger::new());
 
     logger.log("Game started");
     
     let num_tiles = 40;
     let num_players = 2;
-    let mut game = LaddersAndSlides::new(num_tiles, num_players);
+    let mut game = LaddersAndSlides::new(num_tiles, num_players, &logger);
 
     loop {
         game.take_turn();
