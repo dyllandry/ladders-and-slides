@@ -90,22 +90,21 @@ pub fn winning_player(pawns: Vec<&Pawn>, board: &BoardComponent) -> Option<i32> 
     }
 }
 
-// TODO: test
-// TODO: pass in logger
-pub fn move_pawn(pawn: &Pawn, board: &BoardComponent, distance: i32) -> i32 {
-    let mut position = pawn.position + distance;
-    while let Some(conn) = board.connections.iter().find(
-        |conn| conn.start == position
+/// Returns a tuple containing the end position and a vec of traveled connections.
+fn get_position_after_connections<'a>(
+    start_position: i32,
+    connections: &'a Vec<Connection>
+) -> (i32, Vec<&'a Connection>) {
+    let mut interim_position = start_position;
+    let mut traveled_connections: Vec<&Connection> = Vec::new();
+    while let Some(connection_to_travel) = connections.iter().find(
+        |connection| connection.start == interim_position
     ) {
-        println!(
-            "Player {}'s pawn took a connection from {} to {}.",
-            pawn.player + 1,
-            conn.start,
-            conn.end
-        );
-        position = conn.end;
+        interim_position = connection_to_travel.end;
+        traveled_connections.push(connection_to_travel);
     }
-    return position;
+    return (interim_position, traveled_connections);
+
 }
 
 fn position_after_connections(start_position: i32, connections: &Vec<Connection>, logger: Option<&Rc<Logger>>) -> i32 {
@@ -254,22 +253,34 @@ pub fn take_turns(
         .iter_mut()
         .find(|p| p.player == next_player_index).unwrap();
 
-    let move_distance = roll(6, 2);
+    let initial_move_distance = roll(6, 2);
     println!(
         "Player {} rolled a {}.",
         next_pawn.player + 1,
-        move_distance
+        initial_move_distance
     );
-    let initial_new_position = min(next_pawn.position + move_distance, board.num_tiles - 1);
+    let position_after_initial_move = min(next_pawn.position + initial_move_distance, board.num_tiles - 1);
     println!(
         "Player {}'s pawn moved from {} to {}.",
         next_pawn.player + 1,
         next_pawn.position,
-        initial_new_position
+        position_after_initial_move
     );
 
-    let new_position = move_pawn(next_pawn.as_ref(), &board, move_distance);
-    next_pawn.position = min(new_position, board.num_tiles - 1);
+    let (pawn_position_after_connections, traveled_connections) = get_position_after_connections(
+        position_after_initial_move,
+        &board.connections
+    );
+    for traveled_conn in traveled_connections {
+        println!(
+            "Player {}'s pawn took a connection from {} to {}.",
+            next_pawn.player + 1,
+            traveled_conn.start,
+            traveled_conn.end
+        );
+    }
+
+    next_pawn.position = min(pawn_position_after_connections, board.num_tiles - 1);
 
     if let Some(winning_player) = winning_player(pawn_query.iter().collect(), board) {
         println!("Player {} won!", winning_player + 1);
@@ -364,6 +375,59 @@ mod tests {
             let received_final_position = position_after_connections(start_position, &connections, None);
             let expected_final_position = 1;
             assert_eq!(received_final_position, expected_final_position);
+        }
+    }
+
+    mod get_position_after_connections {
+        use super::*;
+
+        #[test]
+        fn returns_correct_position() {
+            let connections = vec![
+                Connection { start: 3, end: 6 },
+                Connection { start: 6, end: 9 },
+                Connection { start: 9, end: 1 },
+            ];
+            let start_position = 3;
+            let (received_final_position, _) = get_position_after_connections(start_position, &connections);
+            let expected_final_position = 1;
+            assert_eq!(received_final_position, expected_final_position);
+        }
+
+        #[test]
+        fn returns_traveled_connections() {
+            let connections_to_travel = vec![
+                Connection { start: 3, end: 6 },
+                Connection { start: 6, end: 9 },
+                Connection { start: 9, end: 1 },
+            ];
+            let connection_not_to_travel = vec![
+                Connection { start: 100, end: 200 },
+            ];
+            let mut all_connections = Vec::new();
+            all_connections.extend(connections_to_travel.clone().into_iter());
+            all_connections.extend(connection_not_to_travel.clone().into_iter());
+
+            let start_position = 3;
+            let (_, traveled_connections) = get_position_after_connections(start_position, &all_connections);
+
+            for conn_to_travel in connections_to_travel {
+                let traveled_conn = traveled_connections.iter().find(
+                    |traveled_conn|
+                        conn_to_travel.start == traveled_conn.start
+                        && conn_to_travel.end == traveled_conn.end
+                );
+                assert!(traveled_conn.is_some());
+            }
+
+            for conn_not_to_travel in connection_not_to_travel {
+                let traveled_conn = traveled_connections.iter().find(
+                    |traveled_conn|
+                        conn_not_to_travel.start == traveled_conn.start
+                        && conn_not_to_travel.end == traveled_conn.end
+                );
+                assert!(traveled_conn.is_none());
+            }
         }
     }
 }
