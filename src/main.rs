@@ -1,4 +1,4 @@
-use ladders_and_slides::{Pawn, BoardComponent, TurnCounter, take_turns};
+use ladders_and_slides::{Pawn, Board, TurnCounter, take_turns};
 use bevy::prelude::*;
 
 mod dice;
@@ -21,7 +21,7 @@ fn add_pawns(mut commands: Commands) {
 }
 
 fn add_board(mut commands: Commands) {
-    commands.spawn(BoardComponent::new(40));
+    commands.spawn(Board::new(40));
 }
 
 fn add_turn_counter(mut commands: Commands) {
