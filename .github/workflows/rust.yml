@@ -16,6 +16,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: Install libasound for alsa
+      run: sudo apt-get install libasound2-dev
+    - name: Install libudev
+      run: sudo apt-get install libudev-dev
     - name: Build
       run: cargo build --verbose
     - name: Run tests
